@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kurogane</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#000; font-family:'Share Tech Mono', monospace; overflow:hidden; }
+
+#toggle { display:none; }
+
+/* ── LOCKED ── */
+#locked {
+  position:fixed; inset:0; z-index:10;
+  background:#000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:opacity 0.7s, visibility 0.7s;
+}
+#locked::after {
+  content:'';
+  position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px);
+}
+
+/* animated static noise on locked */
+#locked::before {
+  content:'';
+  position:absolute; inset:0; pointer-events:none; z-index:1;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size:200px 200px;
+  animation:noise 0.4s steps(1) infinite;
+  opacity:0.4;
+}
+@keyframes noise {
+  0%  { background-position: 0 0; }
+  20% { background-position: -30px 10px; }
+  40% { background-position: 15px -20px; }
+  60% { background-position: -10px 25px; }
+  80% { background-position: 20px -5px; }
+  100%{ background-position: 0 0; }
+}
+
+.lc { position:absolute; width:20px; height:20px; z-index:2; }
+.lc.tl { top:16px; left:16px; border-top:1px solid #2a2a2a; border-left:1px solid #2a2a2a; }
+.lc.tr { top:16px; right:16px; border-top:1px solid #2a2a2a; border-right:1px solid #2a2a2a; }
+.lc.bl { bottom:16px; left:16px; border-bottom:1px solid #2a2a2a; border-left:1px solid #2a2a2a; }
+.lc.br { bottom:16px; right:16px; border-bottom:1px solid #2a2a2a; border-right:1px solid #2a2a2a; }
+
+.lock-wrap {
+  display:flex; flex-direction:column; align-items:center;
+  position:relative; z-index:3;
+  gap:0;
+}
+
+/* ░ symbol instead of padlock — unknown entity */
+.unknown-glyph {
+  font-size:clamp(32px,6vw,52px);
+  color:#222;
+  margin-bottom:22px;
+  letter-spacing:0.1em;
+  animation:glyph-pulse 3s ease-in-out infinite;
+}
+@keyframes glyph-pulse {
+  0%,100% { color:#222; text-shadow:none; }
+  50% { color:#3a3a3a; text-shadow:0 0 12px rgba(255,255,255,0.05); }
+}
+
+.lock-title {
+  font-size:clamp(9px,1.4vw,12px);
+  letter-spacing:0.55em; color:#444;
+  text-transform:uppercase; margin-bottom:9px;
+}
+.lock-sub {
+  font-size:clamp(7px,1vw,9px);
+  letter-spacing:0.35em; color:#282828;
+  text-transform:uppercase; margin-bottom:10px;
+}
+.lock-sub2 {
+  font-size:clamp(7px,0.9vw,8px);
+  letter-spacing:0.25em; color:#1e1e1e;
+  text-transform:uppercase; margin-bottom:30px;
+}
+
+.breach-label {
+  display:inline-block;
+  border:1px solid #333;
+  color:#555;
+  font-family:'Share Tech Mono', monospace;
+  font-size:clamp(9px,1.2vw,11px);
+  letter-spacing:0.4em;
+  text-transform:uppercase;
+  padding:11px 32px;
+  cursor:pointer;
+  user-select:none;
+  -webkit-user-select:none;
+  animation:blink 2s ease-in-out infinite;
+  transition:border-color 0.25s, color 0.25s;
+}
+.breach-label:hover { border-color:#999; color:#bbb; animation:none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* TOGGLE LOGIC */
+#toggle:checked ~ #locked { opacity:0; visibility:hidden; pointer-events:none; }
+#toggle:checked ~ #revealed { opacity:1; pointer-events:auto; }
+
+/* ── REVEALED ── */
+#revealed {
+  position:fixed; inset:0; z-index:9;
+  display:flex;
+  opacity:0; pointer-events:none;
+  transition:opacity 1s 0.35s;
+  overflow:hidden;
+}
+#revealed::after {
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:50;
+  background:repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.055) 3px, rgba(0,0,0,0.055) 4px);
+}
+#revealed::before {
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:49;
+  background:radial-gradient(ellipse at 58% 50%, transparent 22%, rgba(0,0,0,0.88) 100%);
+}
+
+/* portrait */
+#portrait-col {
+  flex:0 0 38%; max-width:295px; min-width:150px;
+  position:relative; overflow:hidden; align-self:stretch;
+}
+#portrait-img {
+  position:absolute; bottom:0; left:0;
+  width:100%; height:100%;
+  object-fit:cover; object-position:center top;
+  filter:grayscale(100%) contrast(1.18) brightness(0.8);
+  -webkit-mask-image:
+    linear-gradient(to right, black 42%, transparent 100%),
+    linear-gradient(to top,   black 55%, transparent 100%);
+  -webkit-mask-composite:destination-in;
+  mask-image:
+    linear-gradient(to right, black 42%, transparent 100%),
+    linear-gradient(to top,   black 55%, transparent 100%);
+  mask-composite:intersect;
+}
+
+/* hologram scanbar */
+#portrait-col::before {
+  content:''; position:absolute; left:0; right:0; height:3px;
+  background:rgba(255,255,255,0.10); z-index:5;
+  animation:scanbar 4s linear infinite;
+}
+@keyframes scanbar { 0%{top:-5px} 100%{top:106%} }
+
+/* holo lines */
+#portrait-col::after {
+  content:''; position:absolute; inset:0; z-index:4; pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg, transparent, transparent 5px,
+    rgba(160,210,255,0.03) 5px, rgba(160,210,255,0.03) 6px
+  );
+  animation:flicker 8s ease-in-out infinite;
+}
+@keyframes flicker {
+  0%,100%{opacity:1} 88%{opacity:1} 89%{opacity:0.3} 90%{opacity:1} 95%{opacity:0.55} 96%{opacity:1}
+}
+
+/* info col */
+#info-col {
+  flex:1; min-width:0;
+  padding:clamp(16px,3vh,36px) clamp(12px,2.5vw,36px) clamp(14px,2.5vh,24px) clamp(16px,3vw,46px);
+  display:flex; flex-direction:column;
+  overflow:hidden; position:relative; z-index:2;
+}
+
+/* name */
+.nm-tag {
+  font-size:clamp(7px,1vw,9px);
+  letter-spacing:0.6em; color:#3a3a3a;
+  text-transform:uppercase; margin-bottom:5px;
+}
+.nm-main {
+  font-size:clamp(26px,5vw,58px);
+  letter-spacing:0.25em; color:#e0e0e0;
+  text-transform:uppercase; line-height:1;
+  text-shadow:0 0 40px rgba(255,255,255,0.06);
+}
+.nm-sub {
+  font-size:clamp(8px,1vw,9px);
+  letter-spacing:0.4em; color:#2e2e2e;
+  text-transform:uppercase; margin-top:6px;
+}
+.divider {
+  width:100%; height:1px;
+  background:linear-gradient(90deg,#555,transparent);
+  margin:clamp(9px,1.8vh,15px) 0;
+}
+
+/* bio */
+.bio {
+  font-size:clamp(9.5px,1.2vw,11.5px);
+  line-height:2; color:#777;
+  letter-spacing:0.03em;
+  margin-bottom:clamp(10px,2vh,18px);
+  flex-shrink:1; overflow:hidden;
+}
+.bio .hi  { color:#bbb; }
+.bio .dim { color:#383838; }
+.bio .red { color:#666; letter-spacing:0.05em; }
+
+/* known data */
+.dgrid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:clamp(6px,1.2vh,11px) clamp(12px,2.5vw,26px);
+  margin-bottom:clamp(10px,1.8vh,14px); flex-shrink:0;
+}
+.dk {
+  font-size:clamp(7px,0.85vw,8px);
+  letter-spacing:0.4em; color:#353535;
+  text-transform:uppercase; margin-bottom:3px;
+}
+.dv { font-size:clamp(10px,1.15vw,12px); color:#888; letter-spacing:0.04em; }
+.dv.unk { color:#333; font-style:italic; }
+
+/* bottom bar */
+.bbar {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  border-top:1px solid #161616; padding-top:10px;
+  margin-top:auto; flex-shrink:0;
+}
+.tag     { font-size:clamp(6.5px,0.88vw,8px); letter-spacing:0.28em; color:#252525; text-transform:uppercase; border:1px solid #1e1e1e; padding:3px 9px; }
+.tag.on  { color:#555; border-color:#3a3a3a; }
+.tag.red { color:#4a3030; border-color:#3a2020; }
+
+/* med symbol on arm — inline SVG badge */
+.med-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  margin-bottom:clamp(10px,2vh,16px);
+  padding:6px 12px;
+  border:1px solid #1e1e1e;
+  width:fit-content;
+}
+.med-badge svg { opacity:0.55; }
+.med-badge span {
+  font-size:clamp(7px,0.9vw,8px);
+  letter-spacing:0.35em; color:#3a3a3a;
+  text-transform:uppercase;
+}
+
+/* corners */
+.rc { position:absolute; width:16px; height:16px; pointer-events:none; z-index:55; }
+.rc.tl { top:13px; left:13px; border-top:1px solid #222; border-left:1px solid #222; }
+.rc.tr { top:13px; right:13px; border-top:1px solid #222; border-right:1px solid #222; }
+.rc.bl { bottom:13px; left:13px; border-bottom:1px solid #222; border-left:1px solid #222; }
+.rc.br { bottom:13px; right:13px; border-bottom:1px solid #222; border-right:1px solid #222; }
+
+/* warning strip at very bottom */
+.warn-strip {
+  position:absolute; bottom:0; left:0; right:0;
+  height:18px; z-index:52;
+  display:flex; align-items:center; overflow:hidden;
+  border-top:1px solid #0f0f0f;
+}
+.warn-text {
+  font-size:8px; letter-spacing:0.3em; color:#1e1e1e;
+  text-transform:uppercase; white-space:nowrap;
+  animation:marquee 28s linear infinite;
+  padding-left:100%;
+}
+@keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-100%)} }
+</style>
+</head>
+<body>
+
+<input type="checkbox" id="toggle"/>
+
+<!-- LOCKED -->
+<div id="locked">
+  <div class="lc tl"></div><div class="lc tr"></div>
+  <div class="lc bl"></div><div class="lc br"></div>
+
+  <div class="lock-wrap">
+    <div class="unknown-glyph">&#x25A0; &#x25A0; &#x25A0;</div>
+    <div class="lock-title">// IDENTITY UNVERIFIED</div>
+    <div class="lock-sub">SUBJECT: UNKNOWN &nbsp;·&nbsp; AFFILIATION: UNKNOWN</div>
+    <div class="lock-sub2">NO RECORDS FOUND &nbsp;·&nbsp; PROCEED WITH CAUTION</div>
+    <label class="breach-label" for="toggle">[ ACCESS FILE ]</label>
+  </div>
+</div>
+
+<!-- REVEALED -->
+<div id="revealed">
+  <div class="rc tl"></div><div class="rc tr"></div>
+  <div class="rc bl"></div><div class="rc br"></div>
+
+  <!-- portrait -->
+  <div id="portrait-col">
+    <img id="portrait-img"
+      src="https://i.ibb.co/kTsd2nv/image.png"
+      alt="Kurogane"
+    />
+  </div>
+
+  <!-- info -->
+  <div id="info-col">
+    <div class="nm-tag">// KNOWN ALIAS</div>
+    <div class="nm-main">KUROGANE</div>
+    <div class="nm-sub">黒鉄 &nbsp;·&nbsp; "BLACK IRON"</div>
+    <div class="divider"></div>
+
+    <div class="bio">
+      A <span class="hi">wanderer</span>. No fixed origin. No declared allegiance.<br>
+      Observed passing through <span class="hi">multiple settlements</span> across the region,<br>
+      never remaining long enough to leave a record.<br><br>
+
+      Almost always accompanied by <span class="hi">autonomous drones</span> —<br>
+      compact, silent, and of unknown manufacture.<br>
+      Their function has not been fully determined.<br><br>
+
+      Carries a <span class="hi">pneumatic cannon</span> of apparent magitech construction —<br>
+      piston-driven, emitting pressurized discharge and mechanical resonance<br>
+      upon operation. <span class="dim">No equivalent weapon has been catalogued.<br>
+      Its origin predates any known production record.</span><br><br>
+
+      A <span class="red">medical insignia</span> is marked on the right arm.<br>
+      Whether this denotes training, affiliation, or something else<br>
+      <span class="dim">remains unanswered.</span>
+    </div>
+
+    <!-- medical symbol badge -->
+    <div class="med-badge">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5.5" y="1" width="3" height="12" rx="1" fill="#888"/>
+        <rect x="1" y="5.5" width="12" height="3" rx="1" fill="#888"/>
+      </svg>
+      <span>Medical insignia · Right arm · Unaffiliated</span>
+    </div>
+
+    <div class="dgrid">
+      <div>
+        <div class="dk">Designation</div>
+        <div class="dv">Kurogane</div>
+      </div>
+      <div>
+        <div class="dk">Origin</div>
+        <div class="dv unk">Unverified</div>
+      </div>
+      <div>
+        <div class="dk">Occupation</div>
+        <div class="dv">Wanderer</div>
+      </div>
+      <div>
+        <div class="dk">Allegiance</div>
+        <div class="dv unk">None on record</div>
+      </div>
+      <div>
+        <div class="dk">Equipment</div>
+        <div class="dv">Magitech Cannon</div>
+      </div>
+      <div>
+        <div class="dk">Escorts</div>
+        <div class="dv">Autonomous drones</div>
+      </div>
+    </div>
+
+    <div class="bbar">
+      <span class="tag on">WANDERER</span>
+      <span class="tag on">MAGITECH</span>
+      <span class="tag on">ARMED</span>
+      <span class="tag red">UNKNOWN ORIGIN</span>
+      <span class="tag">NO AFFILIATION</span>
+    </div>
+  </div>
+
+  <!-- scrolling warning at bottom -->
+  <div class="warn-strip">
+    <span class="warn-text">
+      WARNING: SUBJECT HAS EVADED IDENTIFICATION ON MULTIPLE OCCASIONS &nbsp;·&nbsp;
+      DRONES: COMBAT CAPABLE, THREAT LEVEL UNDETERMINED &nbsp;·&nbsp;
+      WEAPON CLASS: UNREGISTERED, MAGITECH ORIGIN &nbsp;·&nbsp;
+      MEDICAL MARK: AFFILIATION UNCONFIRMED &nbsp;·&nbsp;
+      APPROACH WITH CAUTION &nbsp;·&nbsp;
+      WARNING: SUBJECT HAS EVADED IDENTIFICATION ON MULTIPLE OCCASIONS &nbsp;·&nbsp;
+    </span>
+  </div>
+</div>
+
+</body>
+</html>
